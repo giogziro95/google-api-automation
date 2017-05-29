@@ -6,37 +6,35 @@ require "google/apis/drive_v3"
 
 require "json"
 require "fileutils"
-# require "rubygems"
 require "selenium-webdriver"
 
 require "pp"
 require "./helpers"
 
 # path to client_secrets.json & tokens.yaml & SCOPES
-CLIENT_SECRETS_PATH = File.join(Dir.home, "client_secrets.json")
-CLIENT_SECRETS_PATH2 = File.join(Dir.home, "educare-test-credentials.json")
-CREDENTIALS_PATH = File.join(Dir.home, ".google_credentials", "tokens.yaml")
-CREDENTIALS_PATH2 = File.join(Dir.home, "tokens.yaml")
+CLIENT_SECRETS_PATH = File.join(Dir.home, ".google_cred", "client_secrets.json")
+# CLIENT_SECRETS_PATH2 = File.join(Dir.home, "educare-test-credentials.json")
+CREDENTIALS_PATH = File.join(Dir.home, ".google_cred", "tokens.yaml")
+# CREDENTIALS_PATH2 = File.join(Dir.home, "tokens.yaml")
 OOB_URI = "urn:ietf:wg:oauth:2.0:oob".freeze
 
 SCOPES = [
   Google::Apis::SheetsV4::AUTH_SPREADSHEETS,
-  Google::Apis::YoutubeV3::AUTH_YOUTUBE_UPLOAD,
+  Google::Apis::YoutubeV3::AUTH_YOUTUBE,
   Google::Apis::DriveV3::AUTH_DRIVE
 ].freeze #######################################################################
 
-SCOPES2 = [
-  Google::Apis::YoutubeV3::AUTH_YOUTUBE
-].freeze #######################################################################
+# SCOPES2 = [
+#   Google::Apis::YoutubeV3::AUTH_YOUTUBE
+# ].freeze #######################################################################
 
 # Setting up Transitional Video Download Dir
-download_dir_path = "/Downloads"
-download_path = "#{Dir.home}#{download_dir_path}/VideoTransitDir/"
+download_dir_path = "/google-api-automation"
+download_path = "#{Dir.home}#{download_dir_path}/video_transit_dir/"
 FileUtils.mkdir_p(download_path)
 
 ### Def ### spreadsheet: a gdoc spreadsheet document
 ### Def ### sheet: spreadsheet contains one more or sheets
-### Range Example: "Sheet1!A3:C10"
 
 # Sheet V4 Service
 sheets_service = Google::Apis::SheetsV4::SheetsService.new
@@ -48,16 +46,16 @@ drive_service.authorization = Help.authorize
 
 # Youtube V3 Service
 youtube_service = Google::Apis::YoutubeV3::YouTubeService.new
-youtube_service.authorization = Help.authorize2
+youtube_service.authorization = Help.authorize
 
 # spreadsheet/sheet urls, first one will be used to determine the spreadsheet id
 sheet_1_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=210742017"
-sheet_2_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=1393473034"
+# sheet_2_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=1393473034"
 # if there are multiple sheets, assumes they are in the same spreadsheet
 spreadsheet_id = /[-\w]{25,}/.match(sheet_1_url).to_s
 # sheet_id s
-sheet_1_id = Help.get_sheet_id(sheet_1_url)
-sheet_2_id = Help.get_sheet_id(sheet_2_url)
+# sheet_1_id = Help.get_sheet_id(sheet_1_url)
+# sheet_2_id = Help.get_sheet_id(sheet_2_url)
 
 # Column Letter to Coordinate
 b_col = Help.char_to_ord("B") # Khan Academy URL
@@ -66,7 +64,7 @@ k_col = Help.char_to_ord("K") # Geo youtube URL (for youtube upload status)
 
 global_privacy = "public"
 first_row = 2
-range = Help.create_range("A", first_row, "W", 100)
+range = Help.create_range("A", first_row, "W", 100) # Example: "Sheet1!A3:C10"
 
 # Rows that have videos that haven't been uploaded
 response_range_array = Help.get_range(
