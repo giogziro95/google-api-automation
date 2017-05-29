@@ -43,6 +43,66 @@ module Help
     credentials
   end ##########################################################################
 
+  # Get Georgian title for the video from Khan Academy's website
+  def self.i18n_video_title(khan_url)
+    firefox_path = "/home/webgen/bin/firefox-nightly"
+    firefox_version = `#{firefox_path} -v`.strip
+    puts "\nStarted Getting Title from Khan ***********************************"
+
+    Selenium::WebDriver::Firefox.path = firefox_path
+    caps = Selenium::WebDriver::Remote::Capabilities.firefox(
+      "moz:firefoxOptions" => { args: ["--headless"] }
+    )
+
+    puts "-Launched headless #{firefox_version} from: #{firefox_path}"
+
+    headless_gecko = Selenium::WebDriver.for :firefox, desired_capabilities: caps
+    headless_gecko.get(khan_url)
+
+    wait = Selenium::WebDriver::Wait.new(timeout: 20) # seconds
+
+    # VIDEO NAME | TUTORIAL NAME | TOPIC NAME
+    topic_tutorial_names = []
+    begin
+      wait.until do
+        topic_tutorial_names << headless_gecko.find_element(
+          tag_name: "h1", class: "title_k2aiyo"
+        ).text
+
+        topic_tutorial_names << headless_gecko.find_element(
+          css: ".navHeader_yr446g"
+        ).text.split(/\n+/)[1, 2]
+      end
+    rescue Selenium::WebDriver::Error::NoSuchElementError => e
+      begin
+        warn "***Warning, first name fetching method failed, trying second one."
+        warn e
+        topic_tutorial_names << headless_gecko.find_element(
+          css: "#tutorial-content div div div div div div"
+        ).text.split(/\n+/)[1, 2]
+      rescue Selenium::WebDriver::Error::NoSuchElementError => e
+        warn "*********************************************"
+        warn "*** warning second name fetching method failed."
+        warn e
+        warn "*** Contact the local administrator"
+      end
+    ensure
+      headless_gecko.quit
+    end
+
+    topic_tutorial_names.flatten!
+    topic_tutorial_names[1], topic_tutorial_names[2] =
+      topic_tutorial_names[2], topic_tutorial_names[1]
+
+    puts "-Closed headless #{firefox_version} from: #{firefox_path}"
+    puts "-Video Name: #{topic_tutorial_names[0]}"
+    puts "-SubTopic Name: #{topic_tutorial_names[1]}"
+    puts "-------Topic Name: #{topic_tutorial_names[2]}"
+    puts "Finished Getting Title from Khan **********************************\n"
+    # Insert Ka Khan URL back to array
+    topic_tutorial_names << khan_url
+  end ##########################################################################
+
   # Create Range. (FirstCol & FirstRow : LastCol & LastRow )
   def self.create_range(fc, rf, cl, rl, sheet_name = "Sheet1")
     "#{sheet_name}!#{fc}#{rf}:#{cl}#{rl}"
@@ -128,26 +188,12 @@ module Help
     puts "Finished Batch Clear Ranges ***************************************\n"
   end ##########################################################################
 
-  # Nokogiri
-  # Get Georgian title for the video from Khan Academy's website
-  def self.i18n_video_title(khan_url)
-    puts "\nStarted Getting Title from Khan ***********************************"
-    page = Nokogiri::HTML(open(khan_url), nil, Encoding::UTF_8.to_s)
-
-    title_text = page.css("title")[0].text
-    regexed_title = /.*?(?= \()/.match(title_text).to_s
-    regexed_title.slice!(0..99) if regexed_title.length > 100
-    puts "KA Title: #{regexed_title}"
-    puts "Finished Getting Title from Khan **********************************\n"
-    regexed_title
-  end ##########################################################################
-
   # Get Video by ID
   def self.get_video(srvc, part, **params)
     puts "\nStarted Getting Video by ID ***************************************"
     params = params.delete_if { |_p, v| v == "" }
     resp = srvc.list_videos(part, params)
-    pp resp.to_h
+    # pp resp.to_h
     puts "Finished Getting Video by ID **************************************\n"
     resp
   end ##########################################################################
@@ -205,6 +251,18 @@ module Help
     resource
   end
 
+  # CREATE PLAYLIST OPTIONS snippet[description, tags, default_language,
+  # embeddable, license, public_stats_viewable...]
+  def self.create_video_options(vid_title,
+                                vid_description,
+                                vid_privacy_status = "private",
+                                category_id = "22")
+    { "snippet.category_id" => category_id,
+      "snippet.description" => vid_description,
+      "snippet.title" => vid_title,
+      "status.privacy_status" => vid_privacy_status }
+  end ##########################################################################
+
   # Upload Video
   def self.insert_video(srvc, properties, part, **params)
     puts "\nStarted Inserting Video *******************************************"
@@ -221,7 +279,7 @@ module Help
     puts "\nStarted Listing Own Playlists *************************************"
     params = params.delete_if { |_p, v| v == "" }
     resp = srvc.list_playlists(part, params)
-    pp resp.to_h
+    # pp resp.to_h
     puts "Finished Listing Own Playlists ************************************\n"
     resp
   end ##########################################################################
@@ -231,9 +289,22 @@ module Help
     puts "\nStarted Listing Playlist Videos ***********************************"
     params = params.delete_if { |_p, v| v == "" }
     resp = srvc.list_playlist_items(part, params)
-    pp resp.to_h
+    # pp resp.to_h
     puts "Finished Listing Playlist Videos **********************************\n"
     resp
   end ##########################################################################
 
+  # CREATE PLAYLIST OPTIONS snippet[description, tags, default_language...]
+  def self.create_playlist_options(pl_lst_name, prvcy_stat = "private")
+    { "snippet.title" => pl_lst_name, "status.privacy_status" => prvcy_stat }
+  end ##########################################################################
+
+  # Create Playlist
+  def self.playlists_insert(srvc, properties, part, **params)
+    puts "\nStarted creating Playlist *****************************************"
+    resource = Help.create_resource(properties) # See full sample for function
+    params = params.delete_if { |_p, v| v == "" }
+    srvc.insert_playlist(part, resource, params)
+    puts "Finished creating Playlist ****************************************\n"
+  end ##########################################################################
 end

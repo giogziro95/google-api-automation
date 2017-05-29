@@ -5,12 +5,9 @@ require "google/apis/youtube_v3"
 require "google/apis/drive_v3"
 
 require "json"
-
 require "fileutils"
-
-require "rubygems"
-require "nokogiri"
-require "open-uri"
+# require "rubygems"
+require "selenium-webdriver"
 
 require "pp"
 require "./helpers"
@@ -65,8 +62,9 @@ sheet_2_id = Help.get_sheet_id(sheet_2_url)
 # Column Letter to Coordinate
 b_col = Help.char_to_ord("B") # Khan Academy URL
 d_col = Help.char_to_ord("D") # ENG Youtube URL
-m_col = Help.char_to_ord("M") # upload status
+k_col = Help.char_to_ord("K") # Geo youtube URL (for youtube upload status)
 
+global_privacy = "public"
 first_row = 2
 range = Help.create_range("A", first_row, "W", 100)
 
@@ -77,7 +75,7 @@ response_range_array = Help.get_range(
   sheets_service
 ).values
 
-# 0:index 1:khan_url 2:eng_video_id
+# [row_index, khan_url, eng_video_id]
 selected_rows_array = []
 response_range_array.each.with_index(first_row) do |row, index|
   # Ka Khan Academy Video URL
@@ -88,13 +86,117 @@ response_range_array.each.with_index(first_row) do |row, index|
   eng_video_id = eng_video_regex.captures.first unless eng_video_regex.nil?
 
   # Add needed info to "selected_rows_array"
-  if (row[m_col].empty? unless row[m_col].nil?)
+  if (row[k_col].empty? unless row[k_col].nil?)
     selected_rows_array << [index, khan_url, eng_video_id]
   end
 end
 
+def check_if_playlist_exists(playlist_nam, youtube_service)
+  # LIST OWN PLAYLISTS
+  list_own_playlists_resposne = Help.list_own_playlists(
+    youtube_service,
+    "contentDetails, snippet", # "contentDetails, snippet"
+    mine: true
+  ).to_h[:items].map do |x| # [Playlist ID, Playlist Title]
+    [x[:id], x[:snippet][:localized][:title]]
+  end
+  list_own_playlists_resposne.select do |x|
+    x if playlist_nam == x[1]
+  end
+end
+
+pp selected_rows_array
+# [row_index, [VIDEO NAME, TUTORIAL NAME, TOPIC NAME], eng_video_id, [playlist_id, playlist_title]]
+selected_rows_array.each_with_index do |row|
+  row[1] = Help.i18n_video_title(row[1])
+
+  # Prepare playlist name & check if it already exists.
+  playlist_name = if "#{row[1][1]} | #{row[1][2]}".length <= 150
+                    "#{row[1][1]} | #{row[1][2]}"
+                  elsif row[1][1].length <= 150
+                    row[1][1]
+                  else
+                    row[1][2]
+                  end
+  row[1].delete_at(2)
+  # [row_index, [VIDEO NAME, playlist_name], eng_video_id]
+  row[1][1] = playlist_name
+  puts "Playlist name: #{playlist_name}"
+
+  if check_if_playlist_exists(row[1][1], youtube_service).empty?
+    Help.playlists_insert(
+      youtube_service,
+      Help.create_playlist_options(row[1][1], global_privacy),
+      "snippet, status"
+    )
+  end
+  row << check_if_playlist_exists(row[1][1], youtube_service)
+end
+
 puts "*************************************************************************"
 puts "Starting to upload #{selected_rows_array.size} internationalized Videos."
+
+def playlist_items_insert(srvc, properties, part, **params)
+  resource = Help.create_resource(properties) # See full sample for function
+  params = params.delete_if { |_p, v| v == "" }
+  srvc.insert_playlist_item(part, resource, params)
+end
+
+def generate_description(youtube_service,
+                         eng_video_id,
+                         ka_khan_url = "Ka Khan URL",
+                         eng_khan_url = "Eng Khan URL",
+                         eng_khan_name = "English Video Name")
+
+  # gcnk8TnzsLc            iDQ1foxYf0o       # /w ka video description Ac2LSe4YXcA
+  video_text = Help.get_video(youtube_service, "snippet, contentDetails", id: eng_video_id).to_h
+
+  description_hash = video_text[:items].first[:snippet][:description] unless video_text[:items].nil?
+  description_regex = /^(?=Practice this lesson yourself on KhanAcademy\.org right now:|Watch the next lesson:|Missed the previous lesson\?)(?:Practice this lesson yourself on KhanAcademy\.org right now:\s*(?'practice'.*)\s*)?(?:Watch the next lesson:\s*(?'next'.*)\s*)?(?:Missed the previous lesson\?\s*(?'previous'.*))?/
+
+  # keys --- :practice / :next / :previous
+  video_description_regex_hash = description_regex.match(description_hash)
+
+  unless video_description_regex_hash.nil?
+    ka_named_captures = video_description_regex_hash.named_captures.each do |_k, v|
+      v.gsub(/(www)/, "ka") unless v.nil?
+    end
+  end
+
+  ka_practice = unless ka_named_captures.nil? || ka_named_captures["practice"].nil?
+                  "ივარჯიშე ამაში ხანის აკადემიაზე: #{ka_named_captures['practice']}"
+                end
+
+  ka_next_video = unless ka_named_captures.nil? || ka_named_captures["next"].nil?
+                    "უყურე შემდეგ გაკვეთილს: #{ka_named_captures['next']}"
+                  end
+
+  ka_video_on_khan = "ეს ვიდეო ხანის აკადემიაზე: #{ka_khan_url}"
+
+  eng_video_on_khan = "ინგლისური: #{eng_khan_name} #{eng_khan_url}"
+
+  ka_prev_video = unless ka_named_captures.nil? || ka_named_captures["previous"].nil?
+                    "წინა გაკვეთილი გამოტოვე? შეგიძლია აქ ნახო: #{ka_named_captures['previous']}"
+                  end
+
+  "#{ka_practice}
+
+  #{ka_next_video}
+
+  #{ka_video_on_khan}
+
+  #{eng_video_on_khan}
+
+  #{ka_prev_video}
+
+  ---
+
+  ხანის აკადემია გთავაზობთ პრაქტიკულ სავარჯიშოებს, ვიდეო ინსტრუქციებს და პერსონიფიცირებულ სასწავლო პლატფორმას, რაც მოსწავლეებს საშუალებას აძლევს ისწავლონ საკუთარ ტემპში საკლასო ოთახში და მის გარეთ. ჩვენთან შეგიძლიათ ისწავლოთ მათემატიკა, ზუსტი მეცნიერებები, პროგრამირება, ისტორია, ხელოვნების ისტორია, ეკონომიკა და ბევრი სხვა რამ. ჩვენი მათემათიკის პროგრამა საწყისი დონიდან კალკუსამდე მიგიყვანთ – თანამედროვე ადაპტური ტექნოლოგიის გამოყენებით, რომელიც განსაზღვრავს მოსწავლის ძლიერ და სუსტ მხარეებს. ჩვენ ასევე ვთანამშრომლობთ ისეთ ორგანიზაციებთან, როგორიცაა NASA, Pixar, თანამედროვე ხელოვნების მუზეუმი, მეცნიერებათა კალიფორნიული აკადემია და მასაჩუსეტსის ტექნოლოგიის ინსტიტუტი და შედეგად, გთავაზობთ მათ სპეციალიზირებულ რესურსებს.
+
+  უფასოდ. ყველასთვის. ყოველთვის.
+
+  გამოიწერე სიახლეები https://www.youtube.com/channel/UC5YZ8qFapX-kgmL4WTtvdWA?sub_confirmation=1"
+end
 # Main Loop
 selected_rows_array.each do |row|
   puts
@@ -132,27 +234,24 @@ selected_rows_array.each do |row|
   end
   puts
 
-  vid_title = Help.i18n_video_title(row[1])
-  vid_description = "Description of uploaded video."
-  vid_privacy_status = "private" # public/private
+  vid_title = row[1][0]
+  ka_khan_url = row[1][2]
+  eng_khan_url = row[1][2].gsub(/(\/\/ka)/, "//www")
+  eng_title = /<title>(.+?) \(video\)/.match(
+    `curl #{eng_khan_url} | grep "<title>"`
+  ).captures.first
 
-  options = {
-    "snippet.category_id" => "22",
-    "snippet.default_language" => "",
-    "snippet.description" => vid_description,
-    "snippet.tags[]" => "",
-    "snippet.title" => vid_title,
-    "status.embeddable" => "",
-    "status.license" => "",
-    "status.privacy_status" => vid_privacy_status,
-    "status.public_stats_viewable" => ""
-  }
+  vid_description = generate_description(youtube_service,
+                                         row[2], # Eng video id
+                                         ka_khan_url,
+                                         eng_khan_url,
+                                         eng_title)
 
   begin
     puts "Started Uploading '#{vid_name}'"
     video_upload_resp = Help.insert_video(
       youtube_service,
-      options,
+      Help.create_video_options(vid_title, vid_description, global_privacy),
       "snippet, status",
       upload_source: "#{download_path}#{vid_name}",
       content_type: "video/mp4",
@@ -175,9 +274,15 @@ selected_rows_array.each do |row|
   k_col_data = Help.create_value_range([[k_col_temp]])
   Help.update_range("K#{row[0]}", k_col_data, spreadsheet_id, sheets_service, "USER_ENTERED")
 
-  # UPDATE M Column (Video Upload Status)
-  m_col_data = Help.create_value_range([["✓"]])
-  Help.update_range("M#{row[0]}", m_col_data, spreadsheet_id, sheets_service, "RAW")
+  playlist_items_insert(
+    youtube_service,
+    { "snippet.playlist_id" => row[3][0],
+      "snippet.resource_id.kind" => "youtube#video",
+      "snippet.resource_id.video_id" => uploaded_vid_id,
+      "snippet.position" => "" },
+    "snippet",
+    on_behalf_of_content_owner: ""
+  )
 end # Main Loop
 
 puts "Operation Finished."
@@ -190,7 +295,7 @@ puts "*************************************************************************"
 # # Upload Video
 # vid_title = "some title"
 # vid_description = "Description of uploaded video."
-# vid_privacy_status = "private" # public/private
+# global_privacy = global_privacy # public/private
 
 # options = {
 #   "snippet.category_id" => "22",
@@ -200,7 +305,7 @@ puts "*************************************************************************"
 #   "snippet.title" => vid_title,
 #   "status.embeddable" => "",
 #   "status.license" => "",
-#   "status.privacy_status" => vid_privacy_status,
+#   "status.privacy_status" => global_privacy,
 #   "status.public_stats_viewable" => ""
 # }
 
@@ -289,6 +394,3 @@ puts "*************************************************************************"
 
 
 ################################################################################
-# GET GEORGIAN NAME OF THE VIDEO
-# khan_url = "https://ka.khanacademy.org/math/algebra2/rational-expressions-equations-and-functions/multiplying-and-dividing-rational-expressions/v/multiplying-and-dividing-rational-expressions-3"
-# EducareHelper.i18n_video_title(khan_url)
