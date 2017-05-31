@@ -1,17 +1,15 @@
 module Help
-  # authorization method
-  def self.authorize
-    FileUtils.mkdir_p(File.dirname(CREDENTIALS_PATH))
 
-    client_id = Google::Auth::ClientId.from_file(CLIENT_SECRETS_PATH)
-    token_store = Google::Auth::Stores::FileTokenStore.new(file: CREDENTIALS_PATH)
-    authorizer = Google::Auth::UserAuthorizer.new(client_id, SCOPES, token_store)
+  def self.authorize_youtube(tokens_file, credentials_file, scope)
+    client_id = Google::Auth::ClientId.from_file(credentials_file)
+    token_store = Google::Auth::Stores::FileTokenStore.new(file: tokens_file)
+    authorizer = Google::Auth::UserAuthorizer.new(client_id, scope, token_store)
     user_id = 1
     credentials = authorizer.get_credentials(user_id)
     if credentials.nil?
       url = authorizer.get_authorization_url(base_url: OOB_URI)
       puts "Open the following URL in the browser and enter the " \
-           "resulting code after authorization"
+           "resulting code after authorization: "
       puts url
       code = gets
       credentials = authorizer.get_and_store_credentials_from_code(
@@ -22,26 +20,18 @@ module Help
   end ##########################################################################
 
   # authorization method
-  # def self.authorize2
-  #   FileUtils.mkdir_p(File.dirname(CREDENTIALS_PATH2))
-  #
-  #   client_id = Google::Auth::ClientId.from_file(CLIENT_SECRETS_PATH2)
-  #   token_store = Google::Auth::Stores::FileTokenStore.new(file: CREDENTIALS_PATH2)
-  #   authorizer = Google::Auth::UserAuthorizer.new(client_id, SCOPES2, token_store)
-  #   user_id = 1
-  #   credentials = authorizer.get_credentials(user_id)
-  #   if credentials.nil?
-  #     url = authorizer.get_authorization_url(base_url: OOB_URI)
-  #     puts "Open the following URL in the browser and enter the " \
-  #          "resulting code after authorization"
-  #     puts url
-  #     code = gets
-  #     credentials = authorizer.get_and_store_credentials_from_code(
-  #       user_id: user_id, code: code, base_url: OOB_URI
-  #     )
-  #   end
-  #   credentials
-  # end ##########################################################################
+  def self.authorize(credentials_file, scope)
+    credentials = JSON.parse(File.open(credentials_file, "rb").read)
+    authorization = Signet::OAuth2::Client.new(
+      token_credential_uri: "https://accounts.google.com/o/oauth2/token",
+      audience: "https://accounts.google.com/o/oauth2/token",
+      scope: scope,
+      issuer: credentials["client_id"],
+      signing_key: OpenSSL::PKey::RSA.new(credentials["private_key"], nil)
+    )
+    authorization.fetch_access_token!
+    authorization
+  end ##########################################################################
 
   # Get Georgian title for the video from Khan Academy's website
   def self.i18n_video_title(khan_url)

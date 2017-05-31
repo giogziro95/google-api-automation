@@ -1,52 +1,54 @@
 require "googleauth"
 require "googleauth/stores/file_token_store"
+require "signet"
 require "google/apis/sheets_v4"
 require "google/apis/youtube_v3"
 require "google/apis/drive_v3"
-
 require "json"
 require "fileutils"
 require "selenium-webdriver"
-
 require "pp"
 require "./helpers"
 
-# path to client_secrets.json & tokens.yaml & SCOPES
-CLIENT_SECRETS_PATH = File.join(Dir.home, ".google_cred", "client_secrets.json")
-# CLIENT_SECRETS_PATH2 = File.join(Dir.home, "educare-test-credentials.json")
-CREDENTIALS_PATH = File.join(Dir.home, ".google_cred", "tokens.yaml")
-# CREDENTIALS_PATH2 = File.join(Dir.home, "tokens.yaml")
-OOB_URI = "urn:ietf:wg:oauth:2.0:oob".freeze
+# Setting up Transitional Video Download Dir for Drive Videos
+download_path = "#{Dir.home}/google-api-automation/video_transit_dir/"
+FileUtils.mkdir_p(download_path)
 
-SCOPES = [
+# path to client_secrets.json & tokens.yaml & SCOPES
+CLIENT_SECRETS_PATH =
+  File.join(Dir.home, ".google_cred", "client_secrets_server.json")
+YOUTUBE_CLIENT_SECRETS_PATH =
+  File.join(Dir.home, ".google_cred", "youtube_client_secrets.json")
+YOUTUBE_CREDENTIALS_PATH =
+  File.join(Dir.home, ".google_cred", "youtube_tokens.yaml")
+
+DRIVE_SHEETS_SCOPE = [
   Google::Apis::SheetsV4::AUTH_SPREADSHEETS,
-  Google::Apis::YoutubeV3::AUTH_YOUTUBE,
   Google::Apis::DriveV3::AUTH_DRIVE
 ].freeze #######################################################################
-
-# SCOPES2 = [
-#   Google::Apis::YoutubeV3::AUTH_YOUTUBE
-# ].freeze #######################################################################
-
-# Setting up Transitional Video Download Dir
-download_dir_path = "/google-api-automation"
-download_path = "#{Dir.home}#{download_dir_path}/video_transit_dir/"
-FileUtils.mkdir_p(download_path)
+YOUTUBE_SCOPE = [
+  Google::Apis::YoutubeV3::AUTH_YOUTUBE
+].freeze #######################################################################
+OOB_URI = "urn:ietf:wg:oauth:2.0:oob".freeze # for youtube authorization
 
 ### Def ### spreadsheet: a gdoc spreadsheet document
 ### Def ### sheet: spreadsheet contains one more or sheets
 
 # Sheet V4 Service
 sheets_service = Google::Apis::SheetsV4::SheetsService.new
-sheets_service.authorization = Help.authorize
-
+sheets_service.authorization = Help.authorize(
+  CLIENT_SECRETS_PATH, DRIVE_SHEETS_SCOPE
+)
 # Drive V3 Service
 drive_service = Google::Apis::DriveV3::DriveService.new
-drive_service.authorization = Help.authorize
-
+drive_service.authorization = Help.authorize(
+  CLIENT_SECRETS_PATH, DRIVE_SHEETS_SCOPE
+)
 # Youtube V3 Service
 youtube_service = Google::Apis::YoutubeV3::YouTubeService.new
-youtube_service.authorization = Help.authorize
+youtube_service.authorization = Help.authorize_youtube(
+  YOUTUBE_CREDENTIALS_PATH, YOUTUBE_CLIENT_SECRETS_PATH, YOUTUBE_SCOPE
+)
 
 # spreadsheet/sheet urls, first one will be used to determine the spreadsheet id
 sheet_1_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=210742017"
@@ -60,7 +62,7 @@ spreadsheet_id = /[-\w]{25,}/.match(sheet_1_url).to_s
 # Column Letter to Coordinate
 b_col = Help.char_to_ord("B") # Khan Academy URL
 d_col = Help.char_to_ord("D") # ENG Youtube URL
-k_col = Help.char_to_ord("K") # Geo youtube URL (for youtube upload status)
+m_col = Help.char_to_ord("M") # Geo youtube URL (for youtube upload status)
 
 global_privacy = "public"
 first_row = 2
@@ -84,7 +86,7 @@ response_range_array.each.with_index(first_row) do |row, index|
   eng_video_id = eng_video_regex.captures.first unless eng_video_regex.nil?
 
   # Add needed info to "selected_rows_array"
-  if (row[k_col].empty? unless row[k_col].nil?)
+  unless (row[m_col].empty? unless row[m_col].nil?)
     selected_rows_array << [index, khan_url, eng_video_id]
   end
 end
@@ -94,7 +96,8 @@ def check_if_playlist_exists(playlist_nam, youtube_service)
   list_own_playlists_resposne = Help.list_own_playlists(
     youtube_service,
     "contentDetails, snippet", # "contentDetails, snippet"
-    mine: true
+    # mine: true
+    channel_id: "UCzehYjthdnt9QvoC_Hd6zcQ"
   ).to_h[:items].map do |x| # [Playlist ID, Playlist Title]
     [x[:id], x[:snippet][:localized][:title]]
   end
@@ -146,9 +149,9 @@ def generate_description(youtube_service,
                          eng_khan_url = "Eng Khan URL",
                          eng_khan_name = "English Video Name")
 
-  # gcnk8TnzsLc            iDQ1foxYf0o       # /w ka video description Ac2LSe4YXcA
-  video_text = Help.get_video(youtube_service, "snippet, contentDetails", id: eng_video_id).to_h
-
+  video_text = Help.get_video(
+    youtube_service, "snippet, contentDetails", id: eng_video_id
+  ).to_h
   description_hash = video_text[:items].first[:snippet][:description] unless video_text[:items].nil?
   description_regex = /^(?=Practice this lesson yourself on KhanAcademy\.org right now:|Watch the next lesson:|Missed the previous lesson\?)(?:Practice this lesson yourself on KhanAcademy\.org right now:\s*(?'practice'.*)\s*)?(?:Watch the next lesson:\s*(?'next'.*)\s*)?(?:Missed the previous lesson\?\s*(?'previous'.*))?/
 
@@ -195,6 +198,7 @@ def generate_description(youtube_service,
 
   გამოიწერე სიახლეები https://www.youtube.com/channel/UC5YZ8qFapX-kgmL4WTtvdWA?sub_confirmation=1"
 end
+
 # Main Loop
 selected_rows_array.each do |row|
   puts
@@ -205,17 +209,17 @@ selected_rows_array.each do |row|
     spaces: "drive",
     fields: "files(id, name, owners)"
   )
-
   puts
-  puts "Found #{response.files.count} Files"
+  puts "Found #{response.files.count} File(s)"
   response.files.each do |file|
     puts "-- ID: #{file.id}"
     puts "--- Name: #{file.name}"
     puts "---- Owner? #{file.owners.first.to_h[:me]}"
     puts
   end
+  pp response.to_h
 
-  vid = response.files.map(&:to_h).select { |x| x[:owners].first[:me] }
+  vid = response.files.map(&:to_h).select { |x| x[:owners].first unless x.nil? }
   vid_name = vid.first[:name]
   vid_id = vid.first[:id]
   puts "This is the name & ID of file owned by you: '#{vid_name}' - '#{vid_id}'"
