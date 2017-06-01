@@ -259,18 +259,8 @@ module Help
     resource = create_resource(properties)
     params = params.delete_if { |_p, v| v == "" }
     resp = srvc.insert_video(part, resource, params)
-    pp resp.to_h
-    puts "Finished Inserting Video ******************************************\n"
-    resp
-  end ##########################################################################
-
-  # List Own Playlists
-  def self.list_own_playlists(srvc, part, **params)
-    puts "\nStarted Listing Own Playlists *************************************"
-    params = params.delete_if { |_p, v| v == "" }
-    resp = srvc.list_playlists(part, params)
     # pp resp.to_h
-    puts "Finished Listing Own Playlists ************************************\n"
+    puts "Finished Inserting Video ******************************************\n"
     resp
   end ##########################################################################
 
@@ -294,7 +284,8 @@ module Help
     puts "\nStarted creating Playlist *****************************************"
     resource = Help.create_resource(properties) # See full sample for function
     params = params.delete_if { |_p, v| v == "" }
-    srvc.insert_playlist(part, resource, params)
+    resp = srvc.insert_playlist(part, resource, params)
     puts "Finished creating Playlist ****************************************\n"
+    resp
   end ##########################################################################
 end

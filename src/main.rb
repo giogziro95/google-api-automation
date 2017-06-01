@@ -50,6 +50,9 @@ youtube_service.authorization = Help.authorize_youtube(
   YOUTUBE_CREDENTIALS_PATH, YOUTUBE_CLIENT_SECRETS_PATH, YOUTUBE_SCOPE
 )
 
+khan_ka_channel_id = "UC5YZ8qFapX-kgmL4WTtvdWA" # ka khan
+@playlist_names = [] # temporarily stores all channel playlist ids, names
+
 # spreadsheet/sheet urls, first one will be used to determine the spreadsheet id
 sheet_1_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=210742017"
 # sheet_2_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=1393473034"
@@ -66,7 +69,8 @@ m_col = Help.char_to_ord("M") # Geo youtube URL (for youtube upload status)
 
 global_privacy = "public"
 first_row = 2
-range = Help.create_range("A", first_row, "W", 100) # Example: "Sheet1!A3:C10"
+sheet_name = "Sheet1"
+range = Help.create_range("A", first_row, "W", 100, sheet_name) # Example: "Sheet1!A3:C10"
 
 # Rows that have videos that haven't been uploaded
 response_range_array = Help.get_range(
@@ -91,22 +95,47 @@ response_range_array.each.with_index(first_row) do |row, index|
   end
 end
 
-def check_if_playlist_exists(playlist_nam, youtube_service)
-  # LIST OWN PLAYLISTS
-  list_own_playlists_resposne = Help.list_own_playlists(
-    youtube_service,
-    "contentDetails, snippet", # "contentDetails, snippet"
-    # mine: true
-    channel_id: "UCzehYjthdnt9QvoC_Hd6zcQ"
-  ).to_h[:items].map do |x| # [Playlist ID, Playlist Title]
-    [x[:id], x[:snippet][:localized][:title]]
+# List Playlists
+def list_playlists(srvc, part, **params)
+  params = params.delete_if { |_p, v| v == "" }
+  resp = srvc.list_playlists(part, params)
+  resp
+end
+
+def get_playlists_from_page(youtube_srvc, channel_id, next_page_token = nil)
+  list_playlists(
+    youtube_srvc,
+    "snippet, contentDetails",
+    max_results: 50,
+    channel_id: channel_id,
+    page_token: next_page_token,
+    # on_behalf_of_content_owner: "",
+    # on_behalf_of_content_owner_channel: ""
+  ).to_h
+end
+
+# Recursively Get playlists if more than 50 on channel
+def playlist_recursion(ytb_srvc, channel_id, nxt_pg_tok = nil)
+  res = get_playlists_from_page(ytb_srvc, channel_id, nxt_pg_tok)
+  @playlist_names << res[:items].map do |x| # [Playlist ID, Playlist Title]
+    { id: x[:id], playlist_title: x[:snippet][:localized][:title] }
   end
-  list_own_playlists_resposne.select do |x|
-    x if playlist_nam == x[1]
+
+  return @playlist_names unless res.include?(:next_page_token)
+  playlist_recursion(ytb_srvc, channel_id, res[:next_page_token])
+end
+
+playlist_recursion(youtube_service, khan_ka_channel_id)
+@playlist_names.flatten!
+
+def check_if_playlist_exists(playlist_nam, playlist_array)
+  # LIST OWN PLAYLISTS
+  playlist_array.select do |x|
+    x if playlist_nam == x[:playlist_title]
   end
 end
 
-pp selected_rows_array
+pp "Selected Rows: #{selected_rows_array}"
 # [row_index, [VIDEO NAME, TUTORIAL NAME, TOPIC NAME], eng_video_id, [playlist_id, playlist_title]]
 selected_rows_array.each_with_index do |row|
   row[1] = Help.i18n_video_title(row[1])
@@ -122,26 +151,34 @@ selected_rows_array.each_with_index do |row|
   row[1].delete_at(2)
   # [row_index, [VIDEO NAME, playlist_name], eng_video_id]
   row[1][1] = playlist_name
-  puts "Playlist name: #{playlist_name}"
+  puts "\nPlaylist name: #{playlist_name} \n\n"
+  selected_playlist = check_if_playlist_exists(playlist_name, @playlist_names.flatten)
 
-  if check_if_playlist_exists(row[1][1], youtube_service).empty?
-    Help.playlists_insert(
+  # puts "#{selected_playlist.empty?} TRUE FALSE ? EMPTY? "
+  if selected_playlist.empty?
+    puts "selected_playlist.empty ********************************************"
+    resp = Help.playlists_insert(
       youtube_service,
-      Help.create_playlist_options(row[1][1], global_privacy),
+      Help.create_playlist_options(playlist_name, global_privacy),
       "snippet, status"
-    )
+    ).to_h
+    selected_playlist = [{
+      id: resp[:id], playlist_title: resp[:snippet][:localized][:title]
+    }]
   end
-  row << check_if_playlist_exists(row[1][1], youtube_service)
+
+  row << selected_playlist.first
 end
 
-puts "*************************************************************************"
-puts "Starting to upload #{selected_rows_array.size} internationalized Videos."
-
+# Insert Videos in existing playlist
 def playlist_items_insert(srvc, properties, part, **params)
   resource = Help.create_resource(properties) # See full sample for function
   params = params.delete_if { |_p, v| v == "" }
   srvc.insert_playlist_item(part, resource, params)
 end
+
+puts "*************************************************************************"
+puts "Starting to upload #{selected_rows_array.size} internationalized Videos."
 
 def generate_description(youtube_service,
                          eng_video_id,
@@ -167,15 +204,11 @@ def generate_description(youtube_service,
   ka_practice = unless ka_named_captures.nil? || ka_named_captures["practice"].nil?
                   "ივარჯიშე ამაში ხანის აკადემიაზე: #{ka_named_captures['practice']}"
                 end
-
   ka_next_video = unless ka_named_captures.nil? || ka_named_captures["next"].nil?
                     "უყურე შემდეგ გაკვეთილს: #{ka_named_captures['next']}"
                   end
-
   ka_video_on_khan = "ეს ვიდეო ხანის აკადემიაზე: #{ka_khan_url}"
-
   eng_video_on_khan = "ინგლისური: #{eng_khan_name} #{eng_khan_url}"
-
   ka_prev_video = unless ka_named_captures.nil? || ka_named_captures["previous"].nil?
                     "წინა გაკვეთილი გამოტოვე? შეგიძლია აქ ნახო: #{ka_named_captures['previous']}"
                   end
@@ -188,7 +221,7 @@ def generate_description(youtube_service,
 
   #{eng_video_on_khan}
 
-  #{ka_prev_video}
+  #{ka_prev_video}\n
 
   ---
 
@@ -217,7 +250,6 @@ selected_rows_array.each do |row|
     puts "---- Owner? #{file.owners.first.to_h[:me]}"
     puts
   end
-  pp response.to_h
 
   vid = response.files.map(&:to_h).select { |x| x[:owners].first unless x.nil? }
   vid_name = vid.first[:name]
@@ -271,20 +303,23 @@ selected_rows_array.each do |row|
   uploaded_vid_id = video_upload_resp.to_h[:id]
   ka_vid_url = youtube_base_url + uploaded_vid_id
 
-  # UPDATE K Column (Geo youtube URL)
-  k_col_temp = '=HYPERLINK("' + ka_vid_url + '","' + ka_vid_url + '")'
-  k_col_data = Help.create_value_range([[k_col_temp]])
-  Help.update_range("K#{row[0]}", k_col_data, spreadsheet_id, sheets_service, "USER_ENTERED")
-
   playlist_items_insert(
     youtube_service,
-    { "snippet.playlist_id" => row[3][0],
+    { "snippet.playlist_id" => row[3][:id],
       "snippet.resource_id.kind" => "youtube#video",
       "snippet.resource_id.video_id" => uploaded_vid_id,
       "snippet.position" => "" },
     "snippet",
     on_behalf_of_content_owner: ""
   )
+
+  # UPDATE K Column (Geo youtube URL)
+  k_col_temp = '=HYPERLINK("' + ka_vid_url + '","' + ka_vid_url + '")'
+  k_col_data = Help.create_value_range([[k_col_temp]])
+  Help.update_range("K#{row[0]}", k_col_data, spreadsheet_id, sheets_service, "USER_ENTERED")
+  # UPDATE M Column (To Upload Status)
+  m_col_data = Help.create_value_range([[""]])
+  Help.update_range("M#{row[0]}", m_col_data, spreadsheet_id, sheets_service, "RAW")
 end # Main Loop
 
 puts "Operation Finished."
