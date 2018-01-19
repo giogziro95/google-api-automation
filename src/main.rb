@@ -86,11 +86,11 @@ response_range_array.each.with_index(first_row) do |row, index|
   khan_url = row[b_col] # Column B
 
   # Get english Video ID from Column D
-  eng_video_regex = /.*\/(.+)/.match(row[d_col])
+  eng_video_regex = %r{/.*\/(.+)/}.match(row[d_col])
   eng_video_id = eng_video_regex.captures.first unless eng_video_regex.nil?
 
   # Add needed info to "selected_rows_array"
-  unless (row[m_col].empty? unless row[m_col].nil?)
+  if (row[m_col].empty? unless row[m_col].nil?)
     selected_rows_array << [index, khan_url, eng_video_id]
   end
 end
@@ -137,7 +137,7 @@ end
 
 pp "Selected Rows: #{selected_rows_array}"
 # [row_index, [VIDEO NAME, TUTORIAL NAME, TOPIC NAME], eng_video_id, [playlist_id, playlist_title]]
-selected_rows_array.each_with_index do |row|
+selected_rows_array.each do |row|
   row[1] = Help.i18n_video_title(row[1])
 
   # Prepare playlist name & check if it already exists.
@@ -196,7 +196,7 @@ def generate_description(youtube_service,
   video_description_regex_hash = description_regex.match(description_hash)
 
   unless video_description_regex_hash.nil?
-    ka_named_captures = video_description_regex_hash.named_captures.each do |_k, v|
+    ka_named_captures = video_description_regex_hash.named_captures.each_value do |v|
       v.gsub(/(www)/, "ka") unless v.nil?
     end
   end
@@ -270,7 +270,7 @@ selected_rows_array.each do |row|
 
   vid_title = row[1][0]
   ka_khan_url = row[1][2]
-  eng_khan_url = row[1][2].gsub(/(\/\/ka)/, "//www")
+  eng_khan_url = row[1][2].gsub(%r{/(\/\/ka)/}, "//www")
   eng_title = /<title>(.+?) \(video\)/.match(
     `curl #{eng_khan_url} | grep "<title>"`
   ).captures.first
@@ -320,7 +320,8 @@ selected_rows_array.each do |row|
   # UPDATE M Column (To Upload Status)
   m_col_data = Help.create_value_range([[""]])
   Help.update_range("M#{row[0]}", m_col_data, spreadsheet_id, sheets_service, "RAW")
-end # Main Loop
+end
+# Main Loop
 
 puts "Operation Finished."
 puts "*************************************************************************"

@@ -1,5 +1,4 @@
 module Help
-
   def self.authorize_youtube(tokens_file, credentials_file, scope)
     client_id = Google::Auth::ClientId.from_file(credentials_file)
     token_store = Google::Auth::Stores::FileTokenStore.new(file: tokens_file)
@@ -17,7 +16,8 @@ module Help
       )
     end
     credentials
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # authorization method
   def self.authorize(credentials_file, scope)
@@ -31,7 +31,8 @@ module Help
     )
     authorization.fetch_access_token!
     authorization
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Get Georgian title for the video from Khan Academy's website
   def self.i18n_video_title(khan_url)
@@ -91,12 +92,14 @@ module Help
     puts "Finished Getting Title from Khan **********************************\n"
     # Insert Ka Khan URL back to array
     topic_tutorial_names << khan_url
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Create Range. (FirstCol & FirstRow : LastCol & LastRow )
   def self.create_range(fc, rf, cl, rl, sheet_name = "Sheet1")
     "#{sheet_name}!#{fc}#{rf}:#{cl}#{rl}"
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # case insensitive char to ASCII
   def self.char_to_ord(char)
@@ -105,18 +108,21 @@ module Help
     when /[a-z]/ then char.ord - "a".ord # 97
     else raise "Pass only lower or uppercase English characters."
     end
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # return sheet id
   def self.get_sheet_id(sheet_url)
     /[#&]gid=([0-9]+)/.match(sheet_url).captures.first
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # create value range
   # 2D array of values, range (optional)
   def self.create_value_range(vals, rang = nil)
     Google::Apis::SheetsV4::ValueRange.new(values: vals, range: rang)
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # get method
   # range, spreadsheet_id, SheetsV4::SheetsServ, major_dimension (ROWS*/COLUMNS)
@@ -131,7 +137,8 @@ module Help
     puts "Got: #{resp.to_h[:values].length} Rows"
     puts "Finished Getting Range ********************************************\n"
     resp
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # update method
   # range, value_range (#create_value_range), spreadsheet_id, SheetsV4::SheetsSe
@@ -146,7 +153,8 @@ module Help
     )
     puts "Updated: #{resp.to_h[:updated_range]}"
     puts "Finished Update Range *********************************************\n"
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # batch update method
   # batch_data (array of value ranges), spreadsheet_id, SheetsV4::SheetsServ
@@ -161,7 +169,8 @@ module Help
     )
     pp resp.to_h
     puts "Finished Batch Update Ranges **************************************\n"
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # batch clear method
   # [array of ranges], spreadsheet_id, SheetsV4::SheetsServ
@@ -176,7 +185,8 @@ module Help
     )
     pp resp.to_h
     puts "Finished Batch Clear Ranges ***************************************\n"
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Get Video by ID
   def self.get_video(srvc, part, **params)
@@ -186,7 +196,8 @@ module Help
     # pp resp.to_h
     puts "Finished Getting Video by ID **************************************\n"
     resp
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Batch Get Videos by IDs
   def self.batch_get_video(srvc, part, **params)
@@ -196,7 +207,8 @@ module Help
     pp resp.to_h
     puts "Finished Getting Videos by IDs ************************************\n"
     resp
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Delete Video by ID
   def self.delete_video(srvc, id, **params)
@@ -205,7 +217,8 @@ module Help
     resp = srvc.delete_video(id, params)
     puts "Deleted Video by ID: #{id}" if resp
     puts "Finished Deleting Video by ID *************************************\n"
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Create Resource Helper for Insert Video Method
   def self.create_resource(properties)
@@ -251,7 +264,8 @@ module Help
       "snippet.description" => vid_description,
       "snippet.title" => vid_title,
       "status.privacy_status" => vid_privacy_status }
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Upload Video
   def self.insert_video(srvc, properties, part, **params)
@@ -262,7 +276,8 @@ module Help
     # pp resp.to_h
     puts "Finished Inserting Video ******************************************\n"
     resp
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Get Playlist Videos
   def self.list_videos_by_playlist_id(srvc, part, **params)
@@ -272,12 +287,14 @@ module Help
     # pp resp.to_h
     puts "Finished Listing Playlist Videos **********************************\n"
     resp
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # CREATE PLAYLIST OPTIONS snippet[description, tags, default_language...]
   def self.create_playlist_options(pl_lst_name, prvcy_stat = "private")
     { "snippet.title" => pl_lst_name, "status.privacy_status" => prvcy_stat }
-  end ##########################################################################
+  end
+  ##############################################################################
 
   # Create Playlist
   def self.playlists_insert(srvc, properties, part, **params)
@@ -287,5 +304,6 @@ module Help
     resp = srvc.insert_playlist(part, resource, params)
     puts "Finished creating Playlist ****************************************\n"
     resp
-  end ##########################################################################
+  end
+  ##############################################################################
 end
