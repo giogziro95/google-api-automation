@@ -41,13 +41,15 @@ module Help
     puts "\nStarted Getting Title from Khan ***********************************"
 
     Selenium::WebDriver::Firefox.path = firefox_path
-    caps = Selenium::WebDriver::Remote::Capabilities.firefox(
-      "moz:firefoxOptions" => { args: ["--headless"] }
-    )
+    # caps = Selenium::WebDriver::Remote::Capabilities.firefox(
+    #   "moz:firefoxOptions" => { args: ["--headless"] }
+    # )
+    options = Selenium::WebDriver::Firefox::Options.new(args: ["-headless"])
 
     puts "-Launched headless #{firefox_version} from: #{firefox_path}"
 
-    headless_gecko = Selenium::WebDriver.for :firefox, desired_capabilities: caps
+    # headless_gecko = Selenium::WebDriver.for :firefox, desired_capabilities: caps
+    headless_gecko = Selenium::WebDriver.for(:firefox, options: options)
     headless_gecko.get(khan_url)
 
     wait = Selenium::WebDriver::Wait.new(timeout: 20) # seconds
