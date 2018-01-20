@@ -11,7 +11,7 @@ require "pp"
 require "./helpers"
 
 # Setting up Transitional Video Download Dir for Drive Videos
-download_path = "#{Dir.home}/google-api-automation/video_transit_dir/"
+download_path = "#{Dir.home}/www/google-api-automation/video_transit_dir/"
 FileUtils.mkdir_p(download_path)
 
 # path to client_secrets.json & tokens.yaml & SCOPES
