@@ -54,7 +54,7 @@ khan_ka_channel_id = "UC5YZ8qFapX-kgmL4WTtvdWA" # ka khan
 @playlist_names = [] # temporarily stores all channel playlist ids, names
 
 # spreadsheet/sheet urls, first one will be used to determine the spreadsheet id
-sheet_1_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=210742017"
+sheet_1_url = "https://docs.google.com/spreadsheets/d/1XDTcT-w72wnPnXJ0qvc3aFc5fiajrkrf9laaBeUy42w/edit#gid=572850187"
 # sheet_2_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=1393473034"
 # if there are multiple sheets, assumes they are in the same spreadsheet
 spreadsheet_id = /[-\w]{25,}/.match(sheet_1_url).to_s
@@ -69,8 +69,8 @@ m_col = Help.char_to_ord("M") # Geo youtube URL (for youtube upload status)
 
 global_privacy = "public"
 first_row = 2
-sheet_name = "Sheet1"
-range = Help.create_range("A", first_row, "W", 100, sheet_name) # Example: "Sheet1!A3:C10"
+sheet_name = "new videos to dub"
+range = Help.create_range("A", first_row, "W", 6000, sheet_name) # Example: "Sheet1!A3:C10"
 
 # Rows that have videos that haven't been uploaded
 response_range_array = Help.get_range(
@@ -86,7 +86,7 @@ response_range_array.each.with_index(first_row) do |row, index|
   khan_url = row[b_col] # Column B
 
   # Get english Video ID from Column D
-  eng_video_regex = %r{/.*\/(.+)/}.match(row[d_col])
+  eng_video_regex = /.*\/(.+)/.match(row[d_col])
   eng_video_id = eng_video_regex.captures.first unless eng_video_regex.nil?
 
   # Add needed info to "selected_rows_array"
@@ -252,6 +252,11 @@ selected_rows_array.each do |row|
   end
 
   vid = response.files.map(&:to_h).select { |x| x[:owners].first unless x.nil? }
+  puts "***********************************************************************"
+  puts "#{vid}"
+  puts "#{vid.first}"
+  puts "#{vid.first.inspect}"
+  puts "***********************************************************************"
   vid_name = vid.first[:name]
   vid_id = vid.first[:id]
   puts "This is the name & ID of file owned by you: '#{vid_name}' - '#{vid_id}'"
@@ -270,7 +275,7 @@ selected_rows_array.each do |row|
 
   vid_title = row[1][0]
   ka_khan_url = row[1][2]
-  eng_khan_url = row[1][2].gsub(%r{/(\/\/ka)/}, "//www")
+  eng_khan_url = row[1][2].gsub(/(\/\/ka)/, "//www")
   eng_title = /<title>(.+?) \(video\)/.match(
     `curl #{eng_khan_url} | grep "<title>"`
   ).captures.first
