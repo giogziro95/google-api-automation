@@ -90,7 +90,7 @@ response_range_array.each.with_index(first_row) do |row, index|
   eng_video_id = eng_video_regex.captures.first unless eng_video_regex.nil?
 
   # Add needed info to "selected_rows_array"
-  if (row[m_col].empty? unless row[m_col].nil?)
+  unless (row[m_col].empty? unless row[m_col].nil?)
     selected_rows_array << [index, khan_url, eng_video_id]
   end
 end
