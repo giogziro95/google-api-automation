@@ -54,7 +54,8 @@ khan_ka_channel_id = "UC5YZ8qFapX-kgmL4WTtvdWA" # ka khan
 @playlist_names = [] # temporarily stores all channel playlist ids, names
 
 # spreadsheet/sheet urls, first one will be used to determine the spreadsheet id
-sheet_1_url = "https://docs.google.com/spreadsheets/d/1XDTcT-w72wnPnXJ0qvc3aFc5fiajrkrf9laaBeUy42w/edit#gid=572850187"
+sheet_1_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=210742017"
+# sheet_1_url = "https://docs.google.com/spreadsheets/d/1XDTcT-w72wnPnXJ0qvc3aFc5fiajrkrf9laaBeUy42w/edit#gid=572850187"
 # sheet_2_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=1393473034"
 # if there are multiple sheets, assumes they are in the same spreadsheet
 spreadsheet_id = /[-\w]{25,}/.match(sheet_1_url).to_s
@@ -69,7 +70,8 @@ m_col = Help.char_to_ord("M") # Geo youtube URL (for youtube upload status)
 
 global_privacy = "public"
 first_row = 2
-sheet_name = "new videos to dub"
+sheet_name = "Sheet1"
+# sheet_name = "new videos to dub"
 range = Help.create_range("A", first_row, "W", 6000, sheet_name) # Example: "Sheet1!A3:C10"
 
 # Rows that have videos that haven't been uploaded
