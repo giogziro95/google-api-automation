@@ -185,8 +185,7 @@ puts "Starting to upload #{selected_rows_array.size} internationalized Videos."
 def generate_description(youtube_service,
                          eng_video_id,
                          ka_khan_url = "Ka Khan URL",
-                         eng_khan_url = "Eng Khan URL",
-                         eng_khan_name = "English Video Name")
+                         eng_khan_url = "Eng Khan URL")
 
   video_text = Help.get_video(
     youtube_service, "snippet, contentDetails", id: eng_video_id
@@ -196,10 +195,9 @@ def generate_description(youtube_service,
 
   # keys --- :practice / :next / :previous
   video_description_regex_hash = description_regex.match(description_hash)
-
   unless video_description_regex_hash.nil?
-    ka_named_captures = video_description_regex_hash.named_captures.each_value do |v|
-      v.gsub(/(www)/, "ka") unless v.nil?
+    ka_named_captures = video_description_regex_hash.named_captures.each do |_k, v|
+      v.gsub!(/(www)/, "ka") unless v.nil?
     end
   end
 
@@ -210,7 +208,7 @@ def generate_description(youtube_service,
                     "უყურე შემდეგ გაკვეთილს: #{ka_named_captures['next']}"
                   end
   ka_video_on_khan = "ეს ვიდეო ხანის აკადემიაზე: #{ka_khan_url}"
-  eng_video_on_khan = "ინგლისური: #{eng_khan_name} #{eng_khan_url}"
+  eng_video_on_khan = "ინგლისური: #{eng_khan_url}"
   ka_prev_video = unless ka_named_captures.nil? || ka_named_captures["previous"].nil?
                     "წინა გაკვეთილი გამოტოვე? შეგიძლია აქ ნახო: #{ka_named_captures['previous']}"
                   end
@@ -273,20 +271,14 @@ selected_rows_array.each do |row|
   vid_title = row[1][0]
   ka_khan_url = row[1][2]
   eng_khan_url = row[1][2].gsub(/(\/\/ka)/, "//www")
-  puts eng_khan_url
-  puts `curl #{eng_khan_url} | grep "<title>"`
-  puts
-  eng_title = /<title>(.+?) \(video\)/.match(
-    `curl #{eng_khan_url} | grep "<title>"`
-  ).captures.first
-  puts eng_title
-  puts "****"
+  # eng_title = /<title>(.+?) \(video\)/.match(
+  #   `curl #{eng_khan_url} | grep "<title>"`
+  # ).captures.first
 
   vid_description = generate_description(youtube_service,
                                          row[2], # Eng video id
                                          ka_khan_url,
-                                         eng_khan_url,
-                                         eng_title)
+                                         eng_khan_url)
 
   begin
     puts "Started Uploading '#{vid_name}'"
