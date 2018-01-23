@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+sudo apt-get update
+sudo apt-get -y install git curl
+mkdir ~/www/
+git clone https://github.com/webzorg/google-api-automation.git ~/www/
+
+gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
+\curl -sSL https://get.rvm.io | bash -s stable
+source .profile
+rvm -v
+ruby -v
+
+cp ~/www/google-api-automation/install/.gemrc ~/
+
+cd ~/www/google-api-automation
+bundle install
+
+mkdir -p ~/bin
+tar -xvzf ~/www/google-api-automation/docs/geckodriver-v0.19.1-linux64.tar.gz -C ~/bin/
+tar -xjf ~/www/google-api-automation/docs/firefox-58.0.tar.bz2 -C ~/bin/
+
+ln -s ~/bin/firefox/firefox ~/bin/firefox-headless
+source .profile

@@ -1,18 +1,7 @@
-require "googleauth"
-require "googleauth/stores/file_token_store"
-require "signet"
-require "google/apis/sheets_v4"
-require "google/apis/youtube_v3"
-require "google/apis/drive_v3"
-require "json"
-require "fileutils"
-require "selenium-webdriver"
-require "pp"
-require "./helpers"
+require_relative "helpers"
 
-# Setting up Transitional Video Download Dir for Drive Videos
-download_path = "#{Dir.home}/www/google-api-automation/video_transit_dir/"
-FileUtils.mkdir_p(download_path)
+# Setting up Transitional Video Download Dir for downloading Drive Videos
+FileUtils.mkdir_p("#{Dir.home}#{Settings.tmp_video_download_path}")
 
 # path to client_secrets.json & tokens.yaml & SCOPES
 CLIENT_SECRETS_PATH =
@@ -25,14 +14,11 @@ YOUTUBE_CREDENTIALS_PATH =
 DRIVE_SHEETS_SCOPE = [
   Google::Apis::SheetsV4::AUTH_SPREADSHEETS,
   Google::Apis::DriveV3::AUTH_DRIVE
-].freeze #######################################################################
+].freeze
 YOUTUBE_SCOPE = [
   Google::Apis::YoutubeV3::AUTH_YOUTUBE
-].freeze #######################################################################
+].freeze
 OOB_URI = "urn:ietf:wg:oauth:2.0:oob".freeze # for youtube authorization
-
-### Def ### spreadsheet: a gdoc spreadsheet document
-### Def ### sheet: spreadsheet contains one more or sheets
 
 # Sheet V4 Service
 sheets_service = Google::Apis::SheetsV4::SheetsService.new
@@ -50,29 +36,25 @@ youtube_service.authorization = Help.authorize_youtube(
   YOUTUBE_CREDENTIALS_PATH, YOUTUBE_CLIENT_SECRETS_PATH, YOUTUBE_SCOPE
 )
 
-khan_ka_channel_id = "UC5YZ8qFapX-kgmL4WTtvdWA" # ka khan
 @playlist_names = [] # temporarily stores all channel playlist ids, names
 
-# spreadsheet/sheet urls, first one will be used to determine the spreadsheet id
-# sheet_1_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=210742017"
-sheet_1_url = "https://docs.google.com/spreadsheets/d/1XDTcT-w72wnPnXJ0qvc3aFc5fiajrkrf9laaBeUy42w/edit#gid=572850187"
-# sheet_2_url = "https://docs.google.com/spreadsheets/d/1btbbWrx-i99BxMO0ml1IVM2MNvi5iyavJ-rcoL1RPFA/edit#gid=1393473034"
-# if there are multiple sheets, assumes they are in the same spreadsheet
-spreadsheet_id = /[-\w]{25,}/.match(sheet_1_url).to_s
-# sheet_id s
-# sheet_1_id = Help.get_sheet_id(sheet_1_url)
-# sheet_2_id = Help.get_sheet_id(sheet_2_url)
+# spreadsheet has many sheets
+spreadsheet_id = /[-\w]{25,}/.match(Settings.gdoc_sheet_url).to_s
+# sheet_id, in case it is needed
+# sheet_id = Help.get_sheet_id(sheet_1_url)
 
 # Column Letter to Coordinate
-b_col = Help.char_to_ord("B") # Khan Academy URL
-d_col = Help.char_to_ord("D") # ENG Youtube URL
-m_col = Help.char_to_ord("M") # Geo youtube URL (for youtube upload status)
+b_col = Help.char_to_ord(Settings.khan_academy_url_col) # Khan Academy URL
+d_col = Help.char_to_ord(Settings.eng_youtube_url_col) # ENG Youtube URL
+m_col = Help.char_to_ord(Settings.ka_youtube_url_col) # Geo youtube URL (for youtube upload status)
 
-global_privacy = "public"
-first_row = 2
-# sheet_name = "Sheet1"
-sheet_name = "new videos to dub"
-range = Help.create_range("A", first_row, "W", 6000, sheet_name) # Example: "Sheet1!A3:C10"
+range = Help.create_range( # Example: "Sheet1!A3:C10"
+  Settings.range_starting_col,
+  Settings.first_row,
+  Settings.range_ending_col,
+  Settings.last_row,
+  Settings.sheet_name
+)
 
 # Rows that have videos that haven't been uploaded
 response_range_array = Help.get_range(
@@ -83,7 +65,7 @@ response_range_array = Help.get_range(
 
 # [row_index, khan_url, eng_video_id]
 selected_rows_array = []
-response_range_array.each.with_index(first_row) do |row, index|
+response_range_array.each.with_index(Settings.first_row) do |row, index|
   # Ka Khan Academy Video URL
   khan_url = row[b_col] # Column B
 
@@ -127,7 +109,7 @@ def playlist_recursion(ytb_srvc, channel_id, nxt_pg_tok = nil)
   playlist_recursion(ytb_srvc, channel_id, res[:next_page_token])
 end
 
-playlist_recursion(youtube_service, khan_ka_channel_id)
+playlist_recursion(youtube_service, Settings.khan_youtube_id)
 @playlist_names.flatten!
 
 def check_if_playlist_exists(playlist_nam, playlist_array)
@@ -138,6 +120,7 @@ def check_if_playlist_exists(playlist_nam, playlist_array)
 end
 
 pp "Selected Rows: #{selected_rows_array}"
+# Array structure blueprint
 # [row_index, [VIDEO NAME, TUTORIAL NAME, TOPIC NAME], eng_video_id, [playlist_id, playlist_title]]
 selected_rows_array.each do |row|
   row[1] = Help.i18n_video_title(row[1])
@@ -161,7 +144,7 @@ selected_rows_array.each do |row|
     puts "selected_playlist.empty ********************************************"
     resp = Help.playlists_insert(
       youtube_service,
-      Help.create_playlist_options(playlist_name, global_privacy),
+      Help.create_playlist_options(playlist_name, Settings.global_privacy),
       "snippet, status"
     ).to_h
     selected_playlist = [{
@@ -182,21 +165,24 @@ end
 puts "*************************************************************************"
 puts "Starting to upload #{selected_rows_array.size} internationalized Videos."
 
-def generate_description(youtube_service,
-                         eng_video_id,
-                         ka_khan_url = "Ka Khan URL",
-                         eng_khan_url = "Eng Khan URL")
+def generate_description(
+  youtube_service,
+  eng_video_id,
+  ka_khan_url = "Ka Khan URL",
+  eng_khan_url = "Eng Khan URL"
+)
 
   video_text = Help.get_video(
     youtube_service, "snippet, contentDetails", id: eng_video_id
   ).to_h
   description_hash = video_text[:items].first[:snippet][:description] unless video_text[:items].nil?
-  description_regex = /^(?=Practice this lesson yourself on KhanAcademy\.org right now:|Watch the next lesson:|Missed the previous lesson\?)(?:Practice this lesson yourself on KhanAcademy\.org right now:\s*(?'practice'.*)\s*)?(?:Watch the next lesson:\s*(?'next'.*)\s*)?(?:Missed the previous lesson\?\s*(?'previous'.*))?/
+  # description_regex_old = /^(?=Practice this lesson yourself on KhanAcademy\.org right now:|Watch the next lesson:|Missed the previous lesson\?)(?:Practice this lesson yourself on KhanAcademy\.org right now:\s*(?'practice'.*)\s*)?(?:Watch the next lesson:\s*(?'next'.*)\s*)?(?:Missed the previous lesson\?\s*(?'previous'.*))?/
+  description_regex = /^(?:Practice this lesson yourself on KhanAcademy\.org right now:.*\b(?'practice'http\S+\/e\/\S+)|Watch the next lesson:.*\b(?'next'http\S+)|Missed the previous lesson\?.*\b(?'previous'http\S+))/
 
   # keys --- :practice / :next / :previous
   video_description_regex_hash = description_regex.match(description_hash)
   unless video_description_regex_hash.nil?
-    ka_named_captures = video_description_regex_hash.named_captures.each do |_k, v|
+    ka_named_captures = video_description_regex_hash.named_captures.each_value do |v|
       v.gsub!(/(www)/, "ka") unless v.nil?
     end
   end
@@ -284,7 +270,7 @@ selected_rows_array.each do |row|
     puts "Started Uploading '#{vid_name}'"
     video_upload_resp = Help.insert_video(
       youtube_service,
-      Help.create_video_options(vid_title, vid_description, global_privacy),
+      Help.create_video_options(vid_title, vid_description, Settings.global_privacy),
       "snippet, status",
       upload_source: "#{download_path}#{vid_name}",
       content_type: "video/mp4",
@@ -298,9 +284,8 @@ selected_rows_array.each do |row|
     next
   end
 
-  youtube_base_url = "https://youtu.be/"
   uploaded_vid_id = video_upload_resp.to_h[:id]
-  ka_vid_url = youtube_base_url + uploaded_vid_id
+  ka_vid_url = Settings.youtube_base_url + uploaded_vid_id
 
   playlist_items_insert(
     youtube_service,
@@ -324,110 +309,3 @@ end
 
 puts "Operation Finished."
 puts "*************************************************************************"
-
-# YOUTUBE CALLS
-################################################################################
-# testing filename rmYlCuiC5uY.mp4
-
-# # Upload Video
-# vid_title = "some title"
-# vid_description = "Description of uploaded video."
-# global_privacy = global_privacy # public/private
-
-# options = {
-#   "snippet.category_id" => "22",
-#   "snippet.default_language" => "",
-#   "snippet.description" => vid_description,
-#   "snippet.tags[]" => "",
-#   "snippet.title" => vid_title,
-#   "status.embeddable" => "",
-#   "status.license" => "",
-#   "status.privacy_status" => global_privacy,
-#   "status.public_stats_viewable" => ""
-# }
-
-# puts "Started Uploading 'rmYlCuiC5uY.mp4'"
-# video_upload_resp = Help.insert_video(
-#   youtube_service,
-#   options,
-#   "snippet, status",
-#   upload_source: "#{download_path}rmYlCuiC5uY.mp4",
-#   content_type: "video/mp4"
-# )
-# puts "Finished Uploading 'rmYlCuiC5uY.mp4'"
-
-# # Delete Video
-# Help.delete_video(youtube_service, "o_AxX-a5Ujs")
-
-
-# List Videos by Playlist ID
-# Help.list_videos_by_playlist_id(
-#   youtube_service,
-#   "contentDetails",
-#   max_results: 25,
-#   playlist_id: "PLLEU65lrPs9dKZ9r_FoFsOJNpL2ZMbirM"
-# )
-
-
-# LIST OWN PLAYLISTS
-# Help.list_own_playlists(youtube_service, 'contentDetails',
-#   mine: true,
-#   max_results: 25,
-#   on_behalf_of_content_owner: '',
-#   on_behalf_of_content_owner_channel: '')
-
-
-# list video
-# Help.get_video(youtube_service, "snippet, contentDetails", id: "-2QPNRY39aY")
-
-
-# GOOGLE DRIVE CALLS
-################################################################################
-# service = Google::Apis::DriveV3::DriveService.new
-# service.authorization = authorize
-# List the 10 most recently modified files.
-# response = service.list_files
-# puts "Files:"
-# puts "No files found" if response.files.empty?
-#
-# response.files.each do |file|
-#   puts "#{file.name} (#{file.id})"
-# end
-
-# response = service.list_files(
-#   q: "name='rmYlCuiC5uY.mp4'",
-#   spaces: "drive",
-#   fields: "files(id, name, mimeType, owners)"
-# )
-#
-# response.files.each do |file|
-#   puts "Found file: #{file.name} #{file.id} #{file.mime_type}"
-#   puts "Owner? #{file.owners.first.to_h[:me]}"
-# end
-
-# content = service.get_file("0B_Pyk8zLdQSTT1hwSWxROE04dTA", download_dest: "/home/webgen/someFile.mp4")
-
-
-################################################################################
-# UPDATE RANGE
-# test_range = "Sheet1!A10:C10"
-# update_data = create_value_range([["hello", "hello", "hello"]])
-# Help.update_range(test_range, update_data, spreadsheet_id, sheets_service)
-
-
-################################################################################
-# BATCH UPDATE RANGE
-# array = [["batch hello", "batch hello", "batch hello", 1,2,3,4,5], [1, "batch 2", "batch 2", "batch 2"]]
-# test_range2 = "Sheet1!A11:Z12"
-# batch_update_data = []
-# batch_update_data << create_value_range(array, test_range2)
-# Help.batch_update_ranges(batch_update_data, spreadsheet_id, sheets_service)
-
-
-################################################################################
-# BATCH CLEAR RANGE
-# batch_clear_array = ["A10:H13", "A10"] # array of ranges
-# Help.batch_clear_ranges(batch_clear_array, spreadsheet_id, sheets_service)
-
-
-################################################################################

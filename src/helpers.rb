@@ -1,4 +1,17 @@
+require "rubygems"
+Bundler.require(:default)
+require "googleauth/stores/file_token_store"
+require "google/apis/sheets_v4"
+require "google/apis/youtube_v3"
+require "google/apis/drive_v3"
+require "bundler/setup"
+require "pp"
+
 module Help
+  Config.load_and_set_settings(
+    "#{Dir.home}/www/google-api-automation/config/settings.yml"
+  )
+
   def self.authorize_youtube(tokens_file, credentials_file, scope)
     client_id = Google::Auth::ClientId.from_file(credentials_file)
     token_store = Google::Auth::Stores::FileTokenStore.new(file: tokens_file)
