@@ -46,7 +46,8 @@ spreadsheet_id = /[-\w]{25,}/.match(Settings.gdoc_sheet_url).to_s
 # Column Letter to Coordinate
 b_col = Help.char_to_ord(Settings.khan_academy_url_col) # Khan Academy URL
 d_col = Help.char_to_ord(Settings.eng_youtube_url_col) # ENG Youtube URL
-m_col = Help.char_to_ord(Settings.ka_youtube_url_col) # Geo youtube URL (for youtube upload status)
+# k_col = Help.char_to_ord(Settings.ka_youtube_url_col) # Geo youtube URL
+m_col = Help.char_to_ord(Settings.to_be_uploaded_status) # is not empty if ready for upload
 
 range = Help.create_range( # Example: "Sheet1!A3:C10"
   Settings.range_starting_col,
@@ -300,10 +301,10 @@ selected_rows_array.each do |row|
   # UPDATE K Column (Geo youtube URL)
   k_col_temp = '=HYPERLINK("' + ka_vid_url + '","' + ka_vid_url + '")'
   k_col_data = Help.create_value_range([[k_col_temp]])
-  Help.update_range("K#{row[0]}", k_col_data, spreadsheet_id, sheets_service, "USER_ENTERED")
+  Help.update_range("#{Settings.ka_youtube_url_col}#{row[0]}", k_col_data, spreadsheet_id, sheets_service, "USER_ENTERED")
   # UPDATE M Column (To Upload Status)
   m_col_data = Help.create_value_range([[""]])
-  Help.update_range("M#{row[0]}", m_col_data, spreadsheet_id, sheets_service, "RAW")
+  Help.update_range("#{Settings.to_be_uploaded_status}#{row[0]}", m_col_data, spreadsheet_id, sheets_service, "RAW")
 end
 # Main Loop
 

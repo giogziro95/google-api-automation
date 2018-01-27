@@ -8,7 +8,8 @@ khan_youtube_id: "UC5YZ8qFapX-kgmL4WTtvdWA"
 gdoc_sheet_url: "https://docs.google.com/spreadsheets/d/1XDTcT-w72wnPnXJ0qvc3aFc5fiajrkrf9laaBeUy42w/edit#gid=572850187"
 khan_academy_url_col: "B"
 eng_youtube_url_col: "D"
-ka_youtube_url_col: "M"
+ka_youtube_url_col: "K"
+to_be_uploaded_status: "M"
 sheet_name: "new videos to dub"
 
 # Sheet dimensions

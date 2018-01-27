@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 sudo apt-get update
-sudo apt-get -y install git curl
+sudo apt-get -y install git curl gnupg
 mkdir ~/www/
 git clone https://github.com/webzorg/google-api-automation.git ~/www/
 
@@ -12,6 +12,7 @@ rvm -v
 ruby -v
 
 cp ~/www/google-api-automation/install/.gemrc ~/
+gem install bundler
 
 cd ~/www/google-api-automation
 bundle install
