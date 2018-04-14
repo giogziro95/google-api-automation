@@ -1,4 +1,5 @@
 require "rubygems"
+require "bundler"
 Bundler.require(:default)
 require "googleauth/stores/file_token_store"
 require "google/apis/sheets_v4"

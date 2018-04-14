@@ -4,16 +4,21 @@ global_privacy: "public" # public/private
 youtube_base_url: "https://youtu.be/"
 
 # Likely to need customization
-khan_youtube_id: "UC5YZ8qFapX-kgmL4WTtvdWA"
-gdoc_sheet_url: "https://docs.google.com/spreadsheets/d/1XDTcT-w72wnPnXJ0qvc3aFc5fiajrkrf9laaBeUy42w/edit#gid=572850187"
+khan_youtube_id: "UCzehYjthdnt9QvoC_Hd6zcQ" # webgen25
+# khan_youtube_id: "UC5YZ8qFapX-kgmL4WTtvdWA"
+gdoc_sheet_url: "https://docs.google.com/spreadsheets/d/1CcHhCX9srrAMn1WHpcA06QiAZT6u3GBUHDL8dWjrxm0/edit#gid=0" # labulashvili
+# gdoc_sheet_url: "https://docs.google.com/spreadsheets/d/1XDTcT-w72wnPnXJ0qvc3aFc5fiajrkrf9laaBeUy42w/edit#gid=572850187"
 khan_academy_url_col: "B"
 eng_youtube_url_col: "D"
 ka_youtube_url_col: "K"
 to_be_uploaded_status: "M"
-sheet_name: "new videos to dub"
+sheet_name: "Sheet1" # labulashvili
+# sheet_name: "new videos to dub"
 
 # Sheet dimensions
 range_starting_col: "A"
 first_row: 2
 range_ending_col: "W"
 last_row: 6000
+
+# crowding_api_key: 
