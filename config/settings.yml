@@ -1,7 +1,11 @@
+# curl https://api.crowdin.com/api/project/khanacademy/export?key=123
+
 # Unlikely to need customization
 tmp_video_download_path: "/www/google-api-automation/video_transit_dir/"
 global_privacy: "public" # public/private
 youtube_base_url: "https://youtu.be/"
+
+# labulashvili my-educare-service-account@my-educare.iam.gserviceaccount.com
 
 # Likely to need customization
 khan_youtube_id: "UCzehYjthdnt9QvoC_Hd6zcQ" # webgen25
@@ -21,4 +25,4 @@ first_row: 2
 range_ending_col: "W"
 last_row: 6000
 
-# crowding_api_key: 
+# crowding_api_key:

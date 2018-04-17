@@ -1,7 +1,9 @@
 require_relative "helpers"
+require_relative "needle_in_the_heystack"
 
 # Setting up Transitional Video Download Dir for downloading Drive Videos
-FileUtils.mkdir_p("#{Dir.home}#{Settings.tmp_video_download_path}")
+TMP_VIDEO_DOWNLOAD_PATH = "#{Dir.home}#{Settings.tmp_video_download_path}".freeze
+FileUtils.mkdir_p(TMP_VIDEO_DOWNLOAD_PATH)
 
 # path to client_secrets.json & tokens.yaml & SCOPES
 CLIENT_SECRETS_PATH =
@@ -120,21 +122,30 @@ def check_if_playlist_exists(playlist_nam, playlist_array)
   end
 end
 
-pp "Selected Rows: #{selected_rows_array}"
 # Array structure blueprint
-# [row_index, [VIDEO NAME, TUTORIAL NAME, TOPIC NAME], eng_video_id, [playlist_id, playlist_title]]
-selected_rows_array.each do |row|
-  row[1] = Help.i18n_video_title(row[1])
+# [row_index, [TOPIC NAME, VIDEO NAME], eng_video_id, [playlist_id, playlist_title]]
+selected_rows_array.each_with_index do |row, index|
+  # Legacy method using web scraping
+  # Help.i18n_video_title(row[1])
+
+  # Newer crowding i18n method
+  video_slug_id = selected_rows_array.first[1].match("(?<=\/v\/)(.*)")[0]
+  video_topic_and_name_array = get_attr("title", "video", video_slug_id)
+
+  # Skip uploading this video if translation is missing
+  if !video_topic_and_name_array.eql?(false)
+    row[1] = video_topic_and_name_array << row[1]
+  else
+    puts "ABORTING UPLOADING ROW #{row[0]}"
+    puts "***********************************\n\n"
+    selected_rows_array.delete_at(index)
+    next
+  end
 
   # Prepare playlist name & check if it already exists.
-  playlist_name = if "#{row[1][1]} | #{row[1][2]}".length <= 150
-                    "#{row[1][1]} | #{row[1][2]}"
-                  elsif row[1][1].length <= 150
-                    row[1][1]
-                  else
-                    row[1][2]
-                  end
-  row[1].delete_at(2)
+  playlist_name = row[1][0]
+
+  # row[1].delete_at(2)
   # [row_index, [VIDEO NAME, playlist_name], eng_video_id]
   row[1][1] = playlist_name
   puts "\nPlaylist name: #{playlist_name} \n\n"
@@ -229,7 +240,7 @@ selected_rows_array.each do |row|
     spaces: "drive",
     fields: "files(id, name, owners)"
   )
-  puts
+
   puts "Found #{response.files.count} File(s)"
   response.files.each do |file|
     puts "-- ID: #{file.id}"
@@ -244,16 +255,15 @@ selected_rows_array.each do |row|
   puts "This is the name & ID of file owned by you: '#{vid_name}' - '#{vid_id}'"
 
   puts
-  puts "Checking if '#{vid_name}' already exists in '#{download_path}'"
+  puts "Checking if '#{vid_name}' already exists in '#{TMP_VIDEO_DOWNLOAD_PATH}'"
   puts
-  if File.file?("#{download_path}#{vid_name}")
-    puts "'#{vid_name}' already exists in '#{download_path}'"
+  if File.file?("#{TMP_VIDEO_DOWNLOAD_PATH}#{vid_name}")
+    puts "'#{vid_name}' already exists in '#{TMP_VIDEO_DOWNLOAD_PATH}'"
   else
     puts "Started Downloading '#{vid_name}'"
-    drive_service.get_file(vid_id, download_dest: "#{download_path}#{vid_name}")
-    puts "Finished Downloading '#{vid_name}' to '#{download_path}'"
+    drive_service.get_file(vid_id, download_dest: "#{TMP_VIDEO_DOWNLOAD_PATH}#{vid_name}")
+    puts "Finished Downloading '#{vid_name}' to '#{TMP_VIDEO_DOWNLOAD_PATH}'"
   end
-  puts
 
   vid_title = row[1][0]
   ka_khan_url = row[1][2]
@@ -273,7 +283,7 @@ selected_rows_array.each do |row|
       youtube_service,
       Help.create_video_options(vid_title, vid_description, Settings.global_privacy),
       "snippet, status",
-      upload_source: "#{download_path}#{vid_name}",
+      upload_source: "#{TMP_VIDEO_DOWNLOAD_PATH}#{vid_name}",
       content_type: "video/mp4",
       options: {
         open_timeout_sec: 300

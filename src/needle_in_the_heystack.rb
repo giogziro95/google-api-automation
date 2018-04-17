@@ -1,7 +1,8 @@
 ##
-# special thanks to: 
+# special thanks to:
 #  https://github.com/giogziro95
 ##
+
 #  SYNOPSIS
 #    *.rb ATTR OBJ ID FILES
 #      E.g., kagetattr.rb title video carrying-when-adding-three-digit-numbers *.po
@@ -12,11 +13,12 @@
 
 # multiplying-and-dividing-rational-expressions-3
 # ruby needle_in_the_heystack.rb title video multiplying-and-dividing-rational-expressions-3
+# ruby needle_in_the_heystack.rb title video ca-geometry-similar-triangles-1
 
 # Get arguments from shell
-ATTR =  ARGV[0]     # Attribute                   (title, description)
-OBJ =   ARGV[1]     # Object                      (video, tutorial, topic, subject, domain)
-ID =    ARGV[2]     # Video slug ID               (after /v/ in URL)
+# ATTR =  ARGV[0]     # Attribute                   (title, description)
+# OBJ =   ARGV[1]     # Object                      (video, tutorial, topic, subject, domain)
+# ID =    ARGV[2]     # Video slug ID               (after /v/ in URL)
 # FILES = ARGV[3..-1] # List of filenames/filepaths (can be multiple or single file; can be specified via shell wildcards, e.g., *.po)
 
 # https://ka.khanacademy.org/math/algebra2/rational-expressions-equations-and-functions/multiplying-and-dividing-rational-expressions/v/multiplying-and-dividing-rational-expressions-3
@@ -24,7 +26,7 @@ ID =    ARGV[2]     # Video slug ID               (after /v/ in URL)
 def get_attr(attr, obj, id)
   puts "number of files: #{Dir.glob('../i18n/ka/**/*.po').size}"
 
-  Dir.glob("../i18n/ka/2_high_priority_content/**/*.po").each.with_index(1) do |file, index|
+  Dir.glob("../i18n/ka/**/learn.math.test-prep.videos-ka.po").each.with_index(1) do |file, index|
     $stdout.write "\n" if index.eql?(1)
     $stdout.write "\rSearching for video title in file: #{index} "
 
@@ -66,13 +68,22 @@ def get_attr(attr, obj, id)
     end
 
     # Get paragraph
+    if str.match(/#{paragraph_regex}/).nil?
+      $stdout.write "\n"
+      puts "************* WARNING *************"
+      puts "Translation Missing for video: #{id}"
+      puts "***********************************"
+      return false
+    end
+
+    exit 0
     paragraph = str.match(/#{paragraph_regex}/)[0]
 
     video_topic = ""
     video_topic_url = video_url.match(/http:\/\/translate\.khanacademy\.org(?:\/[^\/]+){2}/)[0]
     video_topic_regex = Regexp.new('(# Title of \w+ <a href="(' + Regexp.escape(video_topic_url) + '\/?)">\2<\/a>\n)+(?:.+\n)*msgstr "([^"\n]+)"$')
 
-    Dir.glob("../i18n/ka/2_high_priority_content/**/*.po").each.with_index(1) do |file1, index1|
+    Dir.glob("../i18n/ka/**/*.po").each.with_index(1) do |file1, index1|
       $stdout.write "\n" if index1.eql?(1)
       $stdout.write "\rSearching for topic in file: #{index1} "
 
@@ -86,5 +97,3 @@ def get_attr(attr, obj, id)
 end
 
 # $stdout.write "\n#{get_attr(ATTR, OBJ, ID)}\r\n"
-
-exit 0
