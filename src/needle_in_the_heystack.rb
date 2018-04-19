@@ -26,14 +26,14 @@
 def get_attr(attr, obj, id)
   puts "number of files: #{Dir.glob('../i18n/ka/**/*.po').size}"
 
-  Dir.glob("../i18n/ka/**/learn.math.test-prep.videos-ka.po").each.with_index(1) do |file, index|
+  Dir.glob("../i18n/ka/**/2_high_priority_content/*.po").each.with_index(1) do |file, index|
     $stdout.write "\n" if index.eql?(1)
-    $stdout.write "\rSearching for video title in file: #{index} "
+    $stdout.write "\rSearching for video title in file: #{index} #{file} "
 
     str = IO.read(file)
 
     # Get content URL
-    video_url_regex = Regexp.new('(?<=<a href=")https?:\/\/translate\.khanacademy\.org\/(.+\/){4}v\/' + Regexp.escape(id) + '\/?(?=">)')
+    video_url_regex = Regexp.new('(?<=# Title of video <a href=")https?:\/\/translate\.khanacademy\.org\/(.+\/){4}v\/' + Regexp.escape(id) + '\/?(?=">)')
 
     next unless str.match?(/#{video_url_regex}/)
     video_url = str.match(/#{video_url_regex}/)[0]
@@ -68,7 +68,7 @@ def get_attr(attr, obj, id)
     end
 
     # Get paragraph
-    if str.match(/#{paragraph_regex}/).nil?
+    unless str.match?(/#{paragraph_regex}/)
       $stdout.write "\n"
       puts "************* WARNING *************"
       puts "Translation Missing for video: #{id}"
@@ -76,7 +76,6 @@ def get_attr(attr, obj, id)
       return false
     end
 
-    exit 0
     paragraph = str.match(/#{paragraph_regex}/)[0]
 
     video_topic = ""
@@ -96,4 +95,4 @@ def get_attr(attr, obj, id)
   end
 end
 
-# $stdout.write "\n#{get_attr(ATTR, OBJ, ID)}\r\n"
+# result = get_attr(ATTR, OBJ, ID)
