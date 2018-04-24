@@ -147,7 +147,7 @@ selected_rows_array.each_with_index do |row, index|
 
   # row[1].delete_at(2)
   # [row_index, [VIDEO NAME, playlist_name], eng_video_id]
-  row[1][1] = playlist_name
+  # row[1][1] = playlist_name
   puts "\nPlaylist name: #{playlist_name} \n\n"
   selected_playlist = check_if_playlist_exists(playlist_name, @playlist_names.flatten)
 
@@ -265,7 +265,7 @@ selected_rows_array.each do |row|
     puts "Finished Downloading '#{vid_name}' to '#{TMP_VIDEO_DOWNLOAD_PATH}'"
   end
 
-  vid_title = row[1][0]
+  vid_title = row[1][1]
   ka_khan_url = row[1][2]
   eng_khan_url = row[1][2].gsub(/(\/\/ka)/, "//www")
   # eng_title = /<title>(.+?) \(video\)/.match(
@@ -280,14 +280,14 @@ selected_rows_array.each do |row|
   begin
     puts "Started Uploading '#{vid_name}'"
     video_upload_resp = Help.insert_video(
-      youtube_service,
-      Help.create_video_options(vid_title, vid_description, Settings.global_privacy),
-      "snippet, status",
-      upload_source: "#{TMP_VIDEO_DOWNLOAD_PATH}#{vid_name}",
-      content_type: "video/mp4",
-      options: {
-        open_timeout_sec: 300
-      }
+     youtube_service,
+     Help.create_video_options(vid_title, vid_description, Settings.global_privacy),
+     "snippet, status",
+     upload_source: "#{TMP_VIDEO_DOWNLOAD_PATH}#{vid_name}",
+     content_type: "video/mp4",
+     options: {
+       open_timeout_sec: 300
+     }
     )
     puts "Finished Uploading '#{vid_name}'"
   rescue Google::Apis::TransmissionError

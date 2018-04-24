@@ -77,7 +77,7 @@ def get_attr(attr, obj, id)
     end
 
     paragraph = str.match(/#{paragraph_regex}/)[0]
-
+     
     video_topic = ""
     video_topic_url = video_url.match(/http:\/\/translate\.khanacademy\.org(?:\/[^\/]+){2}/)[0]
     video_topic_regex = Regexp.new('(# Title of \w+ <a href="(' + Regexp.escape(video_topic_url) + '\/?)">\2<\/a>\n)+(?:.+\n)*msgstr "([^"\n]+)"$')
